@@ -20,147 +20,162 @@ Also try to use https://gist.github.com/yanofsky/5436496
 import sys
 import random
 import re
-from timeoutdec import timeout, TimeoutError
 
 
 FILENAME = "nemecle_tweets.csv"
 
-class Markov_instance(object):
+class Markovinstance(object):
+    """
+    virtual class intended to be used by bots
+
+    """
     def dict_search(self, word):
         """
         search for multiple tuples and return them as a list
-    
+
         """
-    
+
         returnlist = []
-    
+
         lword = str.lower(word)
-    
+
         try:
             for (key, value) in self.wordtuples:
                 if bool(re.match(word, key, re.I)):
                     returnlist.append((key, value))
-    
+
         except Exception as exp:
             # print "(search) Error while working with dictionary: " + str(exp)\
             # + " \nlw: " + lword + " \nword: " + word + " \nkey: " + key
             return -1
-    
+
         return returnlist
+
+    def parse_punctuation(self, text):
+        """
+        replace punctation by keywords
+
+        """
+
+        for char in [", "]:
+            text = text.replace(char, " <comma> ")
+
+        for char in ["... ", "… "]:
+            text = text.replace(char, " <suspension> ")
+
+        for char in [": ", "; ", ") ", " ("]:
+            text = text.replace(char, " <pause> ")
+
+        for char in ["\n", ". ", "! ", "? "]:
+            text = text.replace(char, " <stop> ")
+
+        # clean unecessary whitespaces
+        ' '.join(text.split())
+
+        return text
+
+    def unparse_punctuation(self, text):
+        """
+        replace punctation-keywords by punctuation back
+
+        """
+
+        for char in [" <comma> "]:
+            text = text.replace(char, ", ")
+
+        for char in [" <suspension> "]:
+            text = text.replace(char, "… ")
+
+        for char in [" <stop> ", "<stop> "]:
+            text = text.replace(char, random.choice(["\n", ". "," ! ", " ? "]))
+
+        for char in [" <pause> "]:
+            text = text.replace(char, random.choice([" : ", " ; "]))
+
+        return text
 
     def get_rand_string(self, seed="", length=100):
         """
         return a generated string if given length (in word) and
         based on given file
-    
+
         """
 
         endstring = ""
         isoutofdata = False
-        ite = 0
-        # print("starting with seed")
+        currentlength = 0
+
+        # seed ?
         if seed is "":
             seed, _ = random.choice(self.wordtuples)
-    
-        endstring += seed
-    
-        # print("starting adding samples")
-        while not isoutofdata and ite < self.length:
-            lastword = " ".join(endstring.split()[-self.nbrkey:])
-            possibilities = self.dict_search(lastword)
-            if possibilities is -1:
-                isoutofdata = True
-            elif len(possibilities) is 0:
-                isoutofdata = True
+
+        endstring += str(seed)
+
+        # generate text
+        while not isoutofdata and currentlength < length:
+
+            lastwords = " ".join(endstring.split()[-self.nbrkey:])
+
+            possibilities = self.dict_search(lastwords)
+
+            if possibilities is -1 or len(possibilities) is 0:
+                endstring += " <stop> "
+
             else:
-                (key, value) = random.choice(possibilities)
-    
+                (_, value) = random.choice(possibilities)
+
                 endstring += " " + value
-    
-                ite += 1
-            
-        for char in [" . " ," , ", " ... "]:
-            endstring = endstring.replace(char, char.replace(" ", "") + " ") 
-        for char in [" : ", " ; ", " ? ", " ! "]:
-            endstring = endstring.replace(char, " " + char.replace(" ", "") + " ") 
-        
-        
+
+            currentlength = len(endstring.split())
+
+        endstring = self.unparse_punctuation(endstring)
+
+
         return endstring
 
-    @timeout(5)
-    def get_rand_tweet(self, datafile, length=100, nbrkey=3, nbrvalue=1, seed=""):
-    
-        conti = True
-        res = []
-    
-        while conti:
-            text = get_rand_string(length, seed)
-            if len(text) is not 0:
-                text = re.sub(r"(http|https):\/\/[^ ^\n]* ", "", text)
-                text = re.sub(r"@", "", text)
-                text = re.split(r"[\.\?\!]", text)
-    
-                for sentence in text:
-                    if len(sentence) > 40 and len(sentence) < 140:
-                        conti = False
-                        return sentence
 
-    @timeout(5)
-    def get_rand_reply(self, length=100, seed=""):
-    
-        conti = True
-        res = []
-    
-        while conti:
-            text = get_rand_string(length, seed)
-            if len(text) is not 0:
-                text = re.sub(r"(http|https):\/\/[^ ^\n]* ", "", text)
-                text = re.sub(r"@", "", text)
-                text = re.split(r"[\.\?\!]", text)
-    
-                for sentence in text:
-                    if len(sentence) > 40 and len(sentence) < 60:
-                        conti = False
-                        return sentence
-    
-    
-        return -1
+    def talk(self):
+        """
+        intended as a virtual function.
+
+        """
+
+        print(self.get_rand_string())
+
+        return
 
 
-    def __init__(self, filename, nbrkey, nbrvalue, length):
-        
+    def __init__(self, filename, nbrkey, nbrvalue):
+
         self.filename = filename
         self.nbrkey = nbrkey
         self.nbrvalue = nbrvalue
-        self.length = length
 
         self.wordtuples = []
 
-        
+
         try:
             with open(filename, 'r') as data:
                 text = data.read()
         except Exception as exp:
             print("(main) Error while reading file: " + str(exp))
             return sys.exit(2)
-    
+
         endstring = ""
         isoutofdata = False
         ite = 0
-    
+
+
         # print("striping unwanted characters")
-        for char in ["\"", ")", "(", "]", "[", "=", "\n"]:
+        for char in ["\""]:
             text = text.replace(char, "")
 
-
-        # to process punctation right
-        for char in [". ",", ", " : ", " ; ", "... ", " ! ", " ? "]:
-            text = text.replace(char, " " + char)
+        text = self.parse_punctuation(text)
 
         text = text.split()
         self.numberofword = len(text)
-    
-    
+
+
         # feeding data
         # print("creating tuples")
         for nbr in range(0, self.numberofword - self.nbrkey - self.nbrvalue):
@@ -170,18 +185,18 @@ class Markov_instance(object):
                 keywords.append(text[key])
             for key in range(nbr + self.nbrkey, nbr + self.nbrkey + self.nbrvalue):
                 valuewords.append(text[key])
-    
-    
+
+
             keywords = ''.join(str(e) + " " for e in keywords)
             keywords = " ".join(keywords.split())
-    
+
             valuewords = ''.join(str(e) + " " for e in valuewords)
             valuewords = " ".join(valuewords.split())
-    
+
             # print "\"" + keywords + "\" \"" + valuewords + "\""
-    
+
             self.wordtuples.append((keywords, valuewords))
-    
+
             # print(str(nbr) + " tuples created")
 
         return
@@ -209,19 +224,19 @@ def main():
             "as argument.")
         sys.exit(2)
 
-    try:
-        #3rd argument is optional
-        length = int(sys.argv[4])
-    except Exception:
-        pass
 
-    bot =Markov_instance(filename, nbrkey, nbrvalue, length)
+    bot = Markovinstance(filename, nbrkey, nbrvalue)
 
-    print bot.get_rand_string()
-    print bot.get_rand_string()
-    print bot.get_rand_string()
-    print bot.get_rand_string()
-    print bot.get_rand_string()
+    print("15")
+    print(bot.get_rand_string(length=15))
+    print("20")
+    print(bot.get_rand_string(length=20))
+    print("25")
+    print(bot.get_rand_string(length=25))
+    # print("100")
+    # print(bot.get_rand_string(length=100))
+    # print("1000")
+    # print(bot.get_rand_string(length=1000))
 
     return
 

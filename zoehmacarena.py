@@ -6,68 +6,122 @@ file used for small tests. don't mind it
 """
 
 import tweepy
+import re
 from time import sleep
 from tweepy import OAuthHandler
 
-import markov_test as mt
+from timeoutdec import timeout, TimeoutError
 
-def getstatus():
+from markov_test import Markovinstance
+
+
+class Zoehmacarena(object):
     """
-    generate status, remove mentions and reduce to 140 characters
-
-    """
-    status = "hmmmm je suis à court d'idée. @Nemecle (Error message)"
-
-    status = mt.get_rand_tweet("zoepetitchat_tweets.csv", 20, 2, 1)
-    status = status.replace('@', '')
-
-    #limit to 140 characters
-    status = " ".join(status[:140].split()[:-1])
-
-    return status
-
-def bot_invasion():
-    """
-    bot that tweets
+    Zoeh bot. furnishing this item "as is". I do not provide any
+    warranty of the item whatsoever, whether express, implied, or
+    statutory, including, but not limited to, any warranty of
+    merchantability or fitness for a particular purpose or any
+    warranty that its output will make any form of sense.
 
     """
+    def getstatus(self):
+        """
+        generate status, remove mentions and reduce to 140 characters
 
-    #authorize twitter, initialize tweepy
-    token = open("Zoehmacarena.tokens", "r")
+        """
+        status = "hmmmm je suis à court d'idée. @Nemecle (Error message)"
 
-    consumer_key = token.readline()[:-1]
-    consumer_secret = token.readline()[:-1]
-    access_token = token.readline()[:-1]
-    access_secret = token.readline()[:-1]
+        status = self.get_rand_tweet("zoepetitchat_tweets.csv")
+        status = status.replace('@', '')
 
-    auth = OAuthHandler(consumer_key, consumer_secret)
-    auth.set_access_token(access_token, access_secret)
+        #limit to 140 characters
+        status = " ".join(status[:140].split()[:-1])
 
-    api = tweepy.API(auth)
+        return status
 
-    for nbr in range(1000):
-        status = getstatus()
-        api.update_status(status)
-        print "I tweeted \"" + status + "\""
-        sleep(62)
+    @timeout(5)
+    def get_rand_tweet(self, length=100, seed=""):
+        """
+        try to generate a tweet
+
+        """
+
+        conti = True
+        res = []
+
+        while conti:
+            text = self.brain.get_rand_string(length, seed)
+            if len(text) is not 0:
+                text = re.sub(r"(http|https):\/\/[^ ^\n]* ", "", text)
+                text = re.sub(r"@", "", text)
+                text = re.split(r"[\.\?\!]", text)
+
+                for sentence in text:
+                    if len(sentence) > 40 and len(sentence) < 140:
+                        conti = False
+                        return sentence
+
+    @timeout(5)
+    def get_rand_reply(self, length=100, seed=""):
+        """
+        try to generate a reply
+
+        """
+
+        conti = True
+        res = []
+
+        while conti:
+            text = self.brain.get_rand_string(length, seed)
+            if len(text) is not 0:
+                text = re.sub(r"(http|https):\/\/[^ ^\n]* ", "", text)
+                text = re.sub(r"@", "", text)
+                text = re.split(r"[\.\?\!]", text)
+
+                for sentence in text:
+                    if len(sentence) > 40 and len(sentence) < 60:
+                        conti = False
+                        return sentence
 
 
-    return
+        return -1
 
-def random_tweet():
-    """
-    tweet once.
 
-    """
+    def talk(self):
+        """
+        talk function for heimdall compatibility
 
-    conti = True
-    while conti:
-        text = mt.get_rand_tweet("zoepetitchat_tweets.csv")
-        if len(text) is not 0:
-            conti = False
-            return text
+        """
+        print(self.get_rand_tweet(100))
+        sleep(1)
+        return
 
-    return -1
+
+    def __init__(self, filename, nbrkey, nbrvalue, length):
+        """
+        create a zoeh instance
+
+        """
+
+        token = open("Zoehmacarena.tokens", "r")
+        consumer_key = token.readline()[:-1]
+        consumer_secret = token.readline()[:-1]
+        access_token = token.readline()[:-1]
+        access_secret = token.readline()[:-1]
+
+        self.auth = OAuthHandler(consumer_key, consumer_secret)
+        self.auth.set_access_token(access_token, access_secret)
+
+        self.api = tweepy.API(self.auth)
+
+        self.brain = Markovinstance(filename, nbrkey, nbrvalue, length)
+
+
+        lastanswered = ""
+
+        return
+
+
 
 def main():
     """
@@ -75,19 +129,8 @@ def main():
 
     """
 
-    token = open("Zoehmacarena.tokens", "r")
-    consumer_key = token.readline()[:-1]
-    consumer_secret = token.readline()[:-1]
-    access_token = token.readline()[:-1]
-    access_secret = token.readline()[:-1]
+    zoeh = Zoehmacarena("zoepetitchat_tweets.csv", 2, 2, 100)
 
-    auth = OAuthHandler(consumer_key, consumer_secret)
-    auth.set_access_token(access_token, access_secret)
-
-    api = tweepy.API(auth)
-
-
-    lastanswered = ""
 
     try:
         lastf = open("last.db", "r")
@@ -105,7 +148,7 @@ def main():
 
 
 
-    mentions = api.mentions_timeline()
+    mentions = zoeh.api.mentions_timeline()
 
     for mention in reversed(mentions):
         print str(mention.id)
@@ -121,11 +164,11 @@ def main():
             print "found"
             try:
 
-                answer = mt.get_rand_reply("zoepetitchat_tweets.csv", length=400)
+                answer = zoeh.get_rand_reply()
 
                 print answer
 
-                api.update_status("@" + mention.user.screen_name + answer,\
+                zoeh.api.update_status("@" + mention.user.screen_name + answer,\
                                   mention.id)
 
 
@@ -141,5 +184,6 @@ def main():
     return
 
 if __name__ == '__main__':
-    main()
+    # main()
+    pass
 
