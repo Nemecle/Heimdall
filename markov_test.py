@@ -20,36 +20,58 @@ Also try to use https://gist.github.com/yanofsky/5436496
 import sys
 import random
 import re
+import time
+import redis
 
 
 FILENAME = "nemecle_tweets.csv"
+
+def timeit(method):
+    """
+    from https://www.andreas-jung.com/contents/a-python-decorator-for-measuring-the-execution-time-of-methods
+
+    """
+    def timed(*args, **kw):
+        ts = time.time()
+        result = method(*args, **kw)
+        te = time.time()
+
+        print '%r (%r, %r) %2.2f sec' % \
+              (method.__name__, args, kw, te-ts)
+        return result
+
+    return timed
+
 
 class Markovinstance(object):
     """
     virtual class intended to be used by bots
 
     """
+
     def dict_search(self, word):
         """
         search for multiple tuples and return them as a list
 
         """
 
-        returnlist = []
+        r = redis.Redis("localhost", db=self.dbid)
 
-        lword = str.lower(word)
+        # returnlist = []
 
-        try:
-            for (key, value) in self.wordtuples:
-                if bool(re.match(word, key, re.I)):
-                    returnlist.append((key, value))
+        # word = str.lower(word)
 
-        except Exception as exp:
-            # print "(search) Error while working with dictionary: " + str(exp)\
-            # + " \nlw: " + lword + " \nword: " + word + " \nkey: " + key
-            return -1
+        # try:
+        #     for (key, value) in self.wordtuples:
+        #         if bool(re.match(word, key, re.I)):
+        #             returnlist.append((key, value))
 
-        return returnlist
+        # except Exception as exp:
+        #     # print "(search) Error while working with dictionary: " + str(exp)\
+        #     # + " \nlw: " + lword + " \nword: " + word + " \nkey: " + key
+        #     return -1
+
+        return r.lrange(word, 0, -1)
 
     def parse_punctuation(self, text):
         """
@@ -80,20 +102,25 @@ class Markovinstance(object):
 
         """
 
-        for char in [" <comma> "]:
+        for char in [" <comma> ", "<comma>"]:
             text = text.replace(char, ", ")
 
-        for char in [" <suspension> "]:
+        for char in [" <suspension> ", "<suspension>"]:
             text = text.replace(char, "… ")
 
-        for char in [" <stop> ", "<stop> "]:
-            text = text.replace(char, random.choice(["\n", ". "," ! ", " ? "]))
+        for char in [" <stop> ", "<stop>"]:
+            text = text.replace(char, random.choice(["\n", ". ", " ! ", " ? "]))
 
-        for char in [" <pause> "]:
+        for char in [" <pause> ", "<pause>"]:
             text = text.replace(char, random.choice([" : ", " ; "]))
+
+        text = text.replace("&lt", "<")
+        text = text.replace("&gt", ">")
+        text = text.replace(" . ", ". ")
 
         return text
 
+    @timeit
     def get_rand_string(self, seed="", length=100):
         """
         return a generated string if given length (in word) and
@@ -107,7 +134,8 @@ class Markovinstance(object):
 
         # seed ?
         if seed is "":
-            seed, _ = random.choice(self.wordtuples)
+            while any(word in ["<stop>", "<pause>", "<suspensions>", "<comma>"] for word in seed):
+                seed, _ = random.choice(self.wordtuples)
 
         endstring += str(seed)
 
@@ -118,11 +146,13 @@ class Markovinstance(object):
 
             possibilities = self.dict_search(lastwords)
 
+
             if possibilities is -1 or len(possibilities) is 0:
                 endstring += " <stop> "
 
             else:
-                (_, value) = random.choice(possibilities)
+                # (_, value) = random.choice(possibilities)
+                value = random.choice(possibilities)
 
                 endstring += " " + value
 
@@ -145,14 +175,20 @@ class Markovinstance(object):
         return
 
 
-    def __init__(self, filename, nbrkey, nbrvalue):
 
-        self.filename = filename
-        self.nbrkey = nbrkey
-        self.nbrvalue = nbrvalue
+    def populate_database(self, dbid, filename):
+        """
+        populate redis database from file
 
-        self.wordtuples = []
+            dbid -- Database ID for isolation
+            filename -- textfile to load
 
+            Current databases:
+                0. legacy, "zoepetitchat" tag with the whole dictionnary;
+                    as  value
+                1. zoepetitchat no lowercase database;
+                2. zoepetitchat database;
+        """
 
         try:
             with open(filename, 'r') as data:
@@ -164,6 +200,7 @@ class Markovinstance(object):
         endstring = ""
         isoutofdata = False
         ite = 0
+        r = redis.Redis("localhost", db=dbid)
 
 
         # print("striping unwanted characters")
@@ -183,6 +220,7 @@ class Markovinstance(object):
             valuewords = []
             for key in range(nbr, nbr + self.nbrkey):
                 keywords.append(text[key])
+
             for key in range(nbr + self.nbrkey, nbr + self.nbrkey + self.nbrvalue):
                 valuewords.append(text[key])
 
@@ -195,10 +233,20 @@ class Markovinstance(object):
 
             # print "\"" + keywords + "\" \"" + valuewords + "\""
 
+            r.rpush(keywords.lower(), valuewords)
             self.wordtuples.append((keywords, valuewords))
 
             # print(str(nbr) + " tuples created")
 
+
+
+    def __init__(self, dbid, nbrkey, nbrvalue):
+
+        self.nbrkey = nbrkey
+        self.nbrvalue = nbrvalue
+
+        self.wordtuples = []
+        self.dbid = dbid
         return
 
 
@@ -208,7 +256,6 @@ def main():
     main loop of the program.
 
     """
-
     length = 100
     if len(sys.argv) < 3:
         print("please call the script with one file and two numbers "\
@@ -216,7 +263,7 @@ def main():
         sys.exit(2)
 
     try:
-        filename = sys.argv[1]
+        dbid = int(sys.argv[1])
         nbrkey = int(sys.argv[2])
         nbrvalue = int(sys.argv[3])
     except Exception:
@@ -225,14 +272,9 @@ def main():
         sys.exit(2)
 
 
-    bot = Markovinstance(filename, nbrkey, nbrvalue)
+    bot = Markovinstance(dbid, nbrkey, nbrvalue)
 
-    print("15")
-    print(bot.get_rand_string(length=15))
-    print("20")
-    print(bot.get_rand_string(length=20))
-    print("25")
-    print(bot.get_rand_string(length=25))
+    print(bot.get_rand_string(length=200))
     # print("100")
     # print(bot.get_rand_string(length=100))
     # print("1000")
