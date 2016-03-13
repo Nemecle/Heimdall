@@ -43,7 +43,7 @@ def timeit(method):
     return timed
 
 
-class Markovinstance(object):
+class MarkovInstance(object):
     """
     virtual class intended to be used by bots
 
@@ -71,7 +71,7 @@ class Markovinstance(object):
         #     # + " \nlw: " + lword + " \nword: " + word + " \nkey: " + key
         #     return -1
 
-        return r.lrange(word, 0, -1)
+        return r.lrange(word.lower(), 0, -1)
 
     def parse_punctuation(self, text):
         """
@@ -147,8 +147,10 @@ class Markovinstance(object):
             possibilities = self.dict_search(lastwords)
 
 
-            if possibilities is -1 or len(possibilities) is 0:
+            if len(possibilities) is 0:
                 endstring += " <stop> "
+            elif possibilities is -1:
+                continue
 
             else:
                 # (_, value) = random.choice(possibilities)
@@ -188,6 +190,8 @@ class Markovinstance(object):
                     as  value
                 1. zoepetitchat no lowercase database;
                 2. zoepetitchat database;
+                3. mumbulu databse;
+                4. old english long text;
         """
 
         try:
@@ -236,8 +240,6 @@ class Markovinstance(object):
             r.rpush(keywords.lower(), valuewords)
             self.wordtuples.append((keywords, valuewords))
 
-            # print(str(nbr) + " tuples created")
-
 
 
     def __init__(self, dbid, nbrkey, nbrvalue):
@@ -256,7 +258,6 @@ def main():
     main loop of the program.
 
     """
-    length = 100
     if len(sys.argv) < 3:
         print("please call the script with one file and two numbers "\
             "as argument.")
@@ -272,7 +273,8 @@ def main():
         sys.exit(2)
 
 
-    bot = Markovinstance(dbid, nbrkey, nbrvalue)
+    bot = MarkovInstance(dbid, nbrkey, nbrvalue)
+
 
     print(bot.get_rand_string(length=200))
     # print("100")
