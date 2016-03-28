@@ -102,19 +102,29 @@ class MarkovInstance(object):
 
         """
 
-        for char in [" <comma> ", "<comma>"]:
-            text = text.replace(char, ", ")
+        comma =  [", "]
+        suspension = ["… "]
+        stop =  [". ", " ! ", " ? "]
+        pause = [" : ", " ; "]
+    
+        x = 0
+        while len(re.findall(" <comma> ",  text)) != 0:
+            text = re.sub(" <comma> ", random.choice(comma), text, count=1)
 
-        for char in [" <suspension> ", "<suspension>"]:
-            text = text.replace(char, "… ")
+        x = 0
+        while len(re.findall("( <suspension> |<suspensions>)",  text)) != 0:
+            text = re.sub("( <suspension> |<suspension>)", random.choice(suspension), text, count=1)
 
-        for char in [" <stop> ", "<stop>"]:
-            text = text.replace(char, random.choice(["\n", ". ", " ! ", " ? "]))
+        x = 0
+        while len(re.findall("( <stop> |<stop>)",  text)) != 0:
+            text = re.sub("( <stop> |<stop>)", random.choice(stop), text, count=1)
 
-        for char in [" <pause> ", "<pause>"]:
-            text = text.replace(char, random.choice([" : ", " ; "]))
+        x = 0
+        while len(re.findall("( <pause> |<pause>)",  text)) != 0:
+            text = re.sub("( <pause> |<pause>)", random.choice(pause), text, count=1)
 
-        text = text.replace("&lt", "<")
+
+            text = text.replace("&lt", "<")
         text = text.replace("&gt", ">")
         text = text.replace(" . ", ". ")
 
@@ -274,7 +284,7 @@ def main():
 
 
     bot = MarkovInstance(dbid, nbrkey, nbrvalue)
-
+    # bot.populate_database(0, "zoepetitchat_tweets.csv")
 
     print(bot.get_rand_string(length=200))
     # print("100")
