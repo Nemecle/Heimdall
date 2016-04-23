@@ -3,7 +3,7 @@
 
 from time import sleep
 from multiprocessing import Process, Lock, Pipe, Value
-
+from zoehmacarena import Zoehmacarena
 class Heimdall(object):
     """
     bot manager that start and stop them
@@ -43,12 +43,12 @@ class Heimdall(object):
 
 
         print("starting")
-        proc.start()
-        while cont:
+        # proc.start()
+        while iswatching:
             command = raw_input("Heimdall: ")
 
             if command == "/quit":
-                cont = False
+                iswatching = False
                 state.value = -1
 
             elif command == "/pause":
@@ -64,7 +64,7 @@ class Heimdall(object):
             else:
                 print("unknown command")
 
-        proc.join()
+        # proc.join()
         print("finished")
         return
 
@@ -77,22 +77,22 @@ class Heimdall(object):
 def main():
 
     guardian = Heimdall()
-    zoeh = Zoehmacarena()
+    # zoeh = Zoehmacarena()
 
-    guardian.add_bot(zoeh)
+    # guardian.add_bot(zoeh)
 
-    guardian.main_loop()
+    # guardian.main_loop()
 
     cont = True
     ispaused = False
-    bobby = Bob()
+    # bobby = Bob()
     state = Value("i", 0)
 
     l = Lock()
-    proc = Process(target=bobby.main, args=(l, state,))
+    # proc = Process(target=bobby.main, args=(l, state,))
 
     print("starting")
-    proc.start()
+    # proc.start()
     while cont:
         if ispaused:
             command = raw_input("Heimdall[paused]: ")
@@ -117,6 +117,9 @@ def main():
         else:
             print("unknown command")
 
-    proc.join()
+    # proc.join()
     print("finished")
     return
+
+if __name__ == "__main__":
+    main()

@@ -12,7 +12,7 @@ from tweepy import OAuthHandler
 
 from timeoutdec import timeout, TimeoutError
 
-from markov_test import Markovinstance
+from markov_test import MarkovInstance
 
 
 class Zoehmacarena(object):

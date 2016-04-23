@@ -284,7 +284,7 @@ def main():
 
 
     bot = MarkovInstance(dbid, nbrkey, nbrvalue)
-    # bot.populate_database(0, "zoepetitchat_tweets.csv")
+    bot.populate_database(4, "roneaud1_tweets.csv")
 
     print(bot.get_rand_string(length=200))
     # print("100")
